@@ -1,0 +1,22 @@
+repos:
+  - repo: https://github.com/ddanier/sub-pre-commit.git
+    rev: v4.5.1  # MUST match your pre-commit version
+    hooks:
+      - id: sub-pre-commit
+        alias: sysmon_agent
+        name: "pre-commit for src/sysmon_agent/"
+        args: ["-p", "src/sysmon_agent"]
+        files: "^src/sysmon_agent/.*"
+        stages: ["pre-commit"]
+#      - id: sub-pre-commit
+#        alias: log_analyzer_ml
+#        name: "pre-commit for src/log_analyzer_ml/"
+#        args: [ "-p", "src/log_analyzer_ml" ]
+#        files: "^src/log_analyzer_ml/.*"
+#        stages: [ "pre-commit" ]
+#      - id: sub-pre-commit
+#        alias: backend
+#        name: "pre-commit for src/backend/"
+#        args: ["-p", "src/backend"]
+#        files: "^src/backend/.*"
+#        stages: ["pre-commit"]
