@@ -1,0 +1,32 @@
+[package]
+name = "sysmon_agent"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "sysmon_agent"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+quick-xml = "0.36"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal", "time"] }
+tokio-util = "0.7"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_EventLog",
+] }
+
+[profile.release]
+lto = "thin"
+strip = true
+codegen-units = 1
