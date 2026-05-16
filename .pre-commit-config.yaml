@@ -8,12 +8,12 @@ repos:
         args: ["-p", "src/sysmon_agent"]
         files: "^src/sysmon_agent/.*"
         stages: ["pre-commit"]
-#      - id: sub-pre-commit
-#        alias: log_analyzer_ml
-#        name: "pre-commit for src/log_analyzer_ml/"
-#        args: [ "-p", "src/log_analyzer_ml" ]
-#        files: "^src/log_analyzer_ml/.*"
-#        stages: [ "pre-commit" ]
+      - id: sub-pre-commit
+        alias: log_analyzer_ml
+        name: "pre-commit for src/log_analyzer_ml/"
+        args: [ "-p", "src/log_analyzer_ml" ]
+        files: "^src/log_analyzer_ml/.*"
+        stages: [ "pre-commit" ]
 #      - id: sub-pre-commit
 #        alias: backend
 #        name: "pre-commit for src/backend/"

@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/windows,linux,rust,rust-analyzer,python,pycharm+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,linux,rust,rust-analyzer,python,pycharm+all
 
+datasets/
+
+
 ### Linux ###
 *~
 
