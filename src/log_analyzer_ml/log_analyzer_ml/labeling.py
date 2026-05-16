@@ -34,8 +34,10 @@ def label_records(records: Iterable[SysmonRecord]) -> list[int]:
         by_capture.setdefault(record.capture_id, []).append(idx)
 
     labels = [0] * len(records_list)
-    for _capture_id, indices in by_capture.items():
-        techniques = records_list[indices[0]].capture_techniques
+    for indices in by_capture.values():
+        techniques: set[str] = set()
+        for idx in indices:
+            techniques.update(records_list[idx].capture_techniques)
         capture_is_lotl = technique_intersects_lotl(list(techniques))
 
         roots: set[str] = set()
