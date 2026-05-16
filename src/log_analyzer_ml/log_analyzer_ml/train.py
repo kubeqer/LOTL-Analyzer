@@ -16,10 +16,6 @@ class TrainedModel:
     scale_pos_weight: float
 
 
-def _to_dmatrix(x: csr_matrix, y: np.ndarray | None = None) -> xgb.DMatrix:
-    return xgb.DMatrix(x, label=y) if y is not None else xgb.DMatrix(x)
-
-
 def train_xgb(
     x_train: csr_matrix,
     y_train: np.ndarray,
@@ -53,8 +49,8 @@ def train_xgb(
         "verbosity": 1,
     }
 
-    dtrain = _to_dmatrix(x_train, y_train)
-    dval = _to_dmatrix(x_val, y_val)
+    dtrain = xgb.DMatrix(x_train, label=y_train)
+    dval = xgb.DMatrix(x_val, label=y_val)
     evals_result: dict = {}
     booster = xgb.train(
         params=params,
@@ -87,6 +83,6 @@ def train_xgb(
 
 def predict_proba(model: TrainedModel, x: csr_matrix) -> np.ndarray:
     return model.booster.predict(
-        _to_dmatrix(x),
+        xgb.DMatrix(x),
         iteration_range=(0, model.best_iteration + 1),
     )

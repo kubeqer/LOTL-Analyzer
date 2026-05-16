@@ -9,6 +9,11 @@ from sklearn.cluster import KMeans
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import normalize
 
+DEFAULT_REFINE_MAX_CLUSTERS = 3
+DEFAULT_REFINE_MIN_CLUSTER_SIZE = 4
+KMEANS_N_INIT = 10
+DOWNSAMPLE_TARGET_RATIO = 100.0
+
 
 @dataclass(slots=True)
 class CaptureSplit:
@@ -24,12 +29,6 @@ def capture_split(
     val_size: float = 0.1,
     seed: int = 42,
 ) -> CaptureSplit:
-    """Split row indices into train/val/test along ``groups`` boundaries.
-
-    ``val_size`` is taken from the train remainder (so ``test_size + val_size``
-    is *not* required to be ≤ 1 with respect to total — val is a slice of the
-    post-test split).
-    """
     groups_arr = np.asarray(groups)
     indices = np.arange(len(groups_arr))
 
@@ -166,8 +165,8 @@ def refine_strata_by_feature_cluster(
     capture_strata: dict[str, str],
     capture_signatures: dict[str, np.ndarray],
     *,
-    min_cluster_size: int = 4,
-    max_clusters: int = 3,
+    min_cluster_size: int = DEFAULT_REFINE_MIN_CLUSTER_SIZE,
+    max_clusters: int = DEFAULT_REFINE_MAX_CLUSTERS,
     seed: int = 42,
 ) -> dict[str, str]:
     by_stratum: dict[str, list[str]] = defaultdict(list)
@@ -183,7 +182,7 @@ def refine_strata_by_feature_cluster(
         signatures = np.vstack([capture_signatures[cap] for cap in caps])
         signatures = normalize(signatures, norm="l2")
         k = min(max_clusters, max(2, len(caps) // 3))
-        kmeans = KMeans(n_clusters=k, random_state=seed, n_init=10).fit(signatures)
+        kmeans = KMeans(n_clusters=k, random_state=seed, n_init=KMEANS_N_INIT).fit(signatures)
         for cap, cluster_id in zip(caps, kmeans.labels_, strict=True):
             refined[cap] = f"{stratum}_c{int(cluster_id)}"
     return refined
@@ -205,7 +204,7 @@ def downsample_majority(
     train_idx: np.ndarray,
     labels: np.ndarray,
     *,
-    target_ratio: float = 100.0,
+    target_ratio: float = DOWNSAMPLE_TARGET_RATIO,
     seed: int = 42,
 ) -> np.ndarray:
     rng = np.random.default_rng(seed)

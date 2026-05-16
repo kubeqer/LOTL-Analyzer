@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from urllib.request import urlopen
-
 LOTL_TECHNIQUES: frozenset[str] = frozenset(
     {
         "T1027",
@@ -95,23 +91,3 @@ def parent_technique(technique: str) -> str:
 
 def technique_intersects_lotl(techniques: list[str] | tuple[str, ...]) -> bool:
     return any(t in LOTL_TECHNIQUES or parent_technique(t) in LOTL_TECHNIQUES for t in techniques)
-
-
-def fetch_lolbas_live(cache_path: Path | None = None) -> dict[str, list[str]]:
-    url = "https://lolbas-project.github.io/api/lolbas.json"
-    with urlopen(url, timeout=30) as response:  # noqa: S310
-        catalog = json.load(response)
-    if cache_path is not None:
-        cache_path.write_text(json.dumps(catalog))
-    out: dict[str, list[str]] = {}
-    for entry in catalog:
-        name = entry.get("Name", "").lower()
-        if not name:
-            continue
-        codes: set[str] = set()
-        for command in entry.get("Commands", []) or []:
-            mitre = command.get("MitreID")
-            if mitre:
-                codes.add(mitre)
-        out[name] = sorted(codes)
-    return out

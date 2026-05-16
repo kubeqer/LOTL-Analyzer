@@ -1,16 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
 from .schema import SysmonRecord
 
+logger = logging.getLogger(__name__)
+
+EPOCH = datetime(1970, 1, 1)
+
 
 def _parse_time(raw: str | None) -> datetime:
     if not raw:
-        return datetime.fromtimestamp(0)
+        return EPOCH
     cleaned = raw.replace("Z", "+00:00")
     try:
         parsed = datetime.fromisoformat(cleaned)
@@ -18,10 +23,21 @@ def _parse_time(raw: str | None) -> datetime:
         try:
             parsed = datetime.strptime(cleaned, "%Y-%m-%d %H:%M:%S.%f")
         except ValueError:
-            return datetime.fromtimestamp(0)
+            logger.debug("unparseable timestamp: %r", raw)
+            return EPOCH
     if parsed.tzinfo is not None:
         parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
+
+
+def _stringify(value: object) -> str:
+    return "" if value is None else str(value)
+
+
+def _stringify_dict(payload: object) -> dict[str, str]:
+    if not isinstance(payload, dict):
+        return {}
+    return {str(k): _stringify(v) for k, v in payload.items() if v is not None}
 
 
 MANIFEST_FILENAMES = (
@@ -34,7 +50,6 @@ MANIFEST_FILENAMES = (
 
 
 def _read_manifest(capture_dir: Path) -> tuple[list[str], bool]:
-    """Return (technique_ids, is_malicious_capture) if a manifest is present."""
     for candidate in MANIFEST_FILENAMES:
         manifest = capture_dir / candidate
         if manifest.exists():
@@ -48,15 +63,16 @@ def _read_manifest(capture_dir: Path) -> tuple[list[str], bool]:
                 except json.JSONDecodeError:
                     continue
                 techniques = payload.get("attack_mappings") or payload.get("techniques") or []
-                technique_ids = [
-                    str(t.get("technique") if isinstance(t, dict) else t) for t in techniques
-                ]
+                technique_ids: list[str] = []
+                for t in techniques:
+                    raw = t.get("technique") if isinstance(t, dict) else t
+                    if raw is None:
+                        continue
+                    technique_ids.append(str(raw))
                 return technique_ids, bool(payload.get("malicious", True))
             technique_ids = []
             for line in text.splitlines():
                 stripped = line.strip()
-                if stripped.startswith("- T") and stripped[2:].split(".")[0].isdigit() is False:
-                    pass
                 if stripped.startswith(("technique:", "- technique:", "id:")):
                     value = stripped.split(":", 1)[1].strip().strip('"').strip("'")
                     if value.startswith("T"):
@@ -88,7 +104,7 @@ def load_agent_jsonl(path: Path, capture_id: str | None = None) -> Iterator[Sysm
                 channel=payload.get("channel", "Microsoft-Windows-Sysmon/Operational"),
                 computer=payload.get("computer", ""),
                 time_created=_parse_time(payload.get("time_created")),
-                data={str(k): str(v) for k, v in (payload.get("data") or {}).items()},
+                data=_stringify_dict(payload.get("data")),
                 capture_id=cid,
                 capture_techniques=tuple(payload.get("capture_techniques") or capture_techs),
                 capture_is_malicious=bool(payload.get("capture_is_malicious", capture_malicious)),
@@ -96,7 +112,6 @@ def load_agent_jsonl(path: Path, capture_id: str | None = None) -> Iterator[Sysm
 
 
 def load_mordor_jsonl(path: Path, capture_id: str | None = None) -> Iterator[SysmonRecord]:
-    """Load OTRF Mordor / Security-Datasets JSONL (Winlogbeat ECS schema)."""
     capture_dir = path.parent
     capture_techs, capture_malicious = _read_manifest(capture_dir)
     cid = capture_id or capture_dir.name
@@ -113,15 +128,16 @@ def load_mordor_jsonl(path: Path, capture_id: str | None = None) -> Iterator[Sys
                 continue
             winlog = payload.get("winlog") or {}
             event_data = winlog.get("event_data") or {}
+            host = payload.get("host") or {}
             yield SysmonRecord(
                 record_id=int(winlog.get("record_id") or payload.get("@timestamp_record", 0) or 0),
                 event_id=int(winlog.get("event_id") or payload.get("event_id") or 0),
                 level=int(winlog.get("level") or 4),
                 provider=winlog.get("provider_name", "Microsoft-Windows-Sysmon"),
                 channel=winlog.get("channel", "Microsoft-Windows-Sysmon/Operational"),
-                computer=winlog.get("computer_name", payload.get("host", {}).get("name", "")),
+                computer=winlog.get("computer_name", host.get("name", "")),
                 time_created=_parse_time(payload.get("@timestamp")),
-                data={str(k): str(v) for k, v in event_data.items()},
+                data=_stringify_dict(event_data),
                 capture_id=cid,
                 capture_techniques=tuple(capture_techs),
                 capture_is_malicious=capture_malicious,
@@ -129,7 +145,6 @@ def load_mordor_jsonl(path: Path, capture_id: str | None = None) -> Iterator[Sys
 
 
 def load_attack_data_jsonl(path: Path, capture_id: str | None = None) -> Iterator[SysmonRecord]:
-    """Load Splunk attack_data JSON exports. EventData fields live at the top level."""
     capture_dir = path.parent
     capture_techs, capture_malicious = _read_manifest(capture_dir)
     cid = capture_id or capture_dir.name
@@ -159,7 +174,11 @@ def load_attack_data_jsonl(path: Path, capture_id: str | None = None) -> Iterato
                 continue
             if not isinstance(payload, dict):
                 continue
-            data = {k: str(payload[k]) for k in sysmon_keys if k in payload}
+            data = {
+                k: _stringify(payload[k])
+                for k in sysmon_keys
+                if k in payload and payload[k] is not None
+            }
             yield SysmonRecord(
                 record_id=int(payload.get("RecordNumber") or payload.get("record_id") or 0),
                 event_id=int(payload.get("EventID") or payload.get("event_id") or 0),
@@ -176,11 +195,6 @@ def load_attack_data_jsonl(path: Path, capture_id: str | None = None) -> Iterato
 
 
 def load_evtx_jsonl(path: Path, capture_id: str | None = None) -> Iterator[SysmonRecord]:
-    """Load JSONL emitted by ``omerbenamram/evtx`` (``evtx_dump -o jsonl``).
-
-    Output shape: ``{"Event": {"System": {...}, "EventData": {...}}}``. Lift the
-    relevant fields into our canonical layout.
-    """
     capture_dir = path.parent
     capture_techs, capture_malicious = _read_manifest(capture_dir)
     cid = capture_id or capture_dir.name
@@ -203,18 +217,19 @@ def load_evtx_jsonl(path: Path, capture_id: str | None = None) -> Iterator[Sysmo
                 event_id_raw = event_id_raw.get("#text") or event_id_raw.get("Value") or 0
             time_created_raw = system.get("TimeCreated")
             if isinstance(time_created_raw, dict):
-                time_created_raw = time_created_raw.get("#attributes", {}).get(
-                    "SystemTime"
-                ) or time_created_raw.get("SystemTime")
+                attrs = time_created_raw.get("#attributes") or {}
+                time_created_raw = attrs.get("SystemTime") or time_created_raw.get("SystemTime")
             provider_raw = system.get("Provider")
             if isinstance(provider_raw, dict):
-                provider_name = provider_raw.get("#attributes", {}).get("Name") or provider_raw.get(
-                    "Name", ""
-                )
+                attrs = provider_raw.get("#attributes") or {}
+                provider_name = attrs.get("Name") or provider_raw.get("Name", "")
             else:
                 provider_name = str(provider_raw or "Microsoft-Windows-Sysmon")
-            # evtx_dump renders <Data Name="X">val</Data> into {"X": "val"} already.
-            data = {str(k): str(v) for k, v in event_data.items() if not isinstance(v, dict)}
+            data = {
+                str(k): _stringify(v)
+                for k, v in event_data.items()
+                if v is not None and not isinstance(v, dict)
+            }
             yield SysmonRecord(
                 record_id=int(system.get("EventRecordID") or 0),
                 event_id=int(event_id_raw or 0),
@@ -239,7 +254,6 @@ _DIALECT_LOADERS = {
 
 
 def load_capture(path: Path, dialect: str = "agent") -> Iterator[SysmonRecord]:
-    """Load one ``.jsonl`` file in the given dialect."""
     loader = _DIALECT_LOADERS.get(dialect)
     if loader is None:
         raise ValueError(f"unknown dialect: {dialect!r} (expected one of {list(_DIALECT_LOADERS)})")
@@ -247,11 +261,6 @@ def load_capture(path: Path, dialect: str = "agent") -> Iterator[SysmonRecord]:
 
 
 def load_directory(root: Path, dialect: str = "agent") -> Iterator[SysmonRecord]:
-    """Recursively load every ``.jsonl`` capture under ``root``.
-
-    Each subdirectory is treated as a distinct capture; that subdirectory's name
-    becomes the ``capture_id``. This is what feeds GroupShuffleSplit later.
-    """
     for jsonl_path in sorted(root.rglob("*.jsonl")):
         if jsonl_path.name in MANIFEST_FILENAMES:
             continue
@@ -260,7 +269,6 @@ def load_directory(root: Path, dialect: str = "agent") -> Iterator[SysmonRecord]
 
 
 def load_all(paths: Iterable[tuple[Path, str]]) -> list[SysmonRecord]:
-    """Convenience: load multiple (path, dialect) sources into one list."""
     records: list[SysmonRecord] = []
     for path, dialect in paths:
         if path.is_dir():

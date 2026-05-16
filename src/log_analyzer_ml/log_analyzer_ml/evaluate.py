@@ -48,30 +48,28 @@ class EvalReport:
     imbalance_ratio: float
 
     def pretty(self) -> str:
-        head = (
-            f"PR-AUC      = {self.pr_auc:.4f}\n"
-            f"ROC-AUC     = {self.roc_auc:.4f}\n"
-            f"Best F1     = {self.f1_best:.4f} @ threshold {self.f1_threshold:.4f}\n"
-            f"  precision = {self.precision_best:.4f}\n"
-            f"  recall    = {self.recall_best:.4f}\n"
-        )
-        cascade = "Cascade ranking (primary metric for LLM-tier handoff):\n"
+        lines: list[str] = [
+            f"PR-AUC      = {self.pr_auc:.4f}",
+            f"ROC-AUC     = {self.roc_auc:.4f}",
+            f"Best F1     = {self.f1_best:.4f} @ threshold {self.f1_threshold:.4f}",
+            f"  precision = {self.precision_best:.4f}",
+            f"  recall    = {self.recall_best:.4f}",
+            "Cascade ranking (primary metric for LLM-tier handoff):",
+        ]
         for fraction in TOP_K_PERCENTILES:
             key = _top_key(fraction)
-            cascade += f"  recall @ top {fraction * 100:>4.0f}% = {getattr(self, f'recall_at_{key}'):.4f}\n"
-        floors = ""
+            value = getattr(self, f"recall_at_{key}")
+            lines.append(f"  recall @ top {fraction * 100:>4.0f}% = {value:.4f}")
         for target in PRECISION_FLOORS:
             key = _floor_key(target)
-            floors += (
-                f"At precision ≥ {target:.2f}:\n"
-                f"  precision = {getattr(self, f'precision_at_{key}'):.4f}\n"
-                f"  recall    = {getattr(self, f'recall_at_{key}'):.4f}\n"
-            )
-        tail = (
+            lines.append(f"At precision ≥ {target:.2f}:")
+            lines.append(f"  precision = {getattr(self, f'precision_at_{key}'):.4f}")
+            lines.append(f"  recall    = {getattr(self, f'recall_at_{key}'):.4f}")
+        lines.append(
             f"Test set    : {self.positives} positives, {self.negatives} negatives "
             f"(neg/pos = {self.imbalance_ratio:.1f})"
         )
-        return head + cascade + floors + tail
+        return "\n".join(lines)
 
 
 def evaluate(y_true: np.ndarray, y_score: np.ndarray) -> EvalReport:
@@ -85,14 +83,20 @@ def evaluate(y_true: np.ndarray, y_score: np.ndarray) -> EvalReport:
         roc_auc = float("nan")
 
     precisions, recalls, thresholds = precision_recall_curve(y_true, y_score)
-    # F1 across thresholds — note thresholds has length len(precisions) - 1.
+
     f1_vals = (2 * precisions * recalls) / np.clip(precisions + recalls, 1e-9, None)
-    best_idx = int(np.argmax(f1_vals[:-1])) if len(f1_vals) > 1 else 0
-    f1_threshold = float(thresholds[best_idx]) if len(thresholds) else 0.5
-    y_pred_best = (y_score >= f1_threshold).astype(int)
-    f1_best = float(f1_score(y_true, y_pred_best, zero_division=0))
-    precision_best = float(precision_score(y_true, y_pred_best, zero_division=0))
-    recall_best = float(recall_score(y_true, y_pred_best, zero_division=0))
+    if len(thresholds) == 0:
+        f1_threshold = float("nan")
+        f1_best = float("nan")
+        precision_best = float("nan")
+        recall_best = float("nan")
+    else:
+        best_idx = int(np.argmax(f1_vals[:-1]))
+        f1_threshold = float(thresholds[best_idx])
+        y_pred_best = (y_score >= f1_threshold).astype(int)
+        f1_best = float(f1_score(y_true, y_pred_best, zero_division=0))
+        precision_best = float(precision_score(y_true, y_pred_best, zero_division=0))
+        recall_best = float(recall_score(y_true, y_pred_best, zero_division=0))
 
     floor_metrics: dict[str, float] = {}
     for target in PRECISION_FLOORS:
@@ -160,9 +164,12 @@ def evaluate_capture_level(
 def _max_recall_at_precision(
     precisions: np.ndarray, recalls: np.ndarray, target: float
 ) -> tuple[float, float]:
-    mask = (precisions[:-1] >= target) & (recalls[:-1] > 0)
+
+    p = precisions[:-1]
+    r = recalls[:-1]
+    mask = (p >= target) & (r > 0)
     if not mask.any():
         return 0.0, 0.0
     candidates = np.where(mask)[0]
-    chosen = int(candidates[np.argmax(recalls[candidates])])
-    return float(precisions[chosen]), float(recalls[chosen])
+    chosen = int(candidates[np.argmax(r[candidates])])
+    return float(p[chosen]), float(r[chosen])

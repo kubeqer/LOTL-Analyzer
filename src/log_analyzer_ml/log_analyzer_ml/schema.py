@@ -8,13 +8,9 @@ SYSMON_PROCESS_CREATE = 1
 SYSMON_NETWORK_CONNECT = 3
 SYSMON_FILE_CREATE = 11
 
-REQUIRED_FIELDS = ("record_id", "event_id", "time_created", "data")
-
 
 @dataclass(slots=True)
 class SysmonRecord:
-    """One Sysmon event in the canonical schema."""
-
     record_id: int
     event_id: int
     time_created: datetime

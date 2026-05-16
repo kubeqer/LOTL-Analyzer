@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import bisect
 import math
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Sequence
 from datetime import timedelta
 
@@ -20,7 +21,13 @@ from .schema import (
 _BASE64_RE = re.compile(r"[A-Za-z0-9+/]{24,}={0,2}")
 _HEX_RE = re.compile(r"\b(?:[A-Fa-f0-9]{2}){12,}\b")
 _URL_RE = re.compile(r"https?://[^\s\"']+", re.IGNORECASE)
-_SPECIAL_RE = re.compile(r"[^A-Za-z0-9 ]")
+
+_SPECIAL_RE = re.compile(r"[`^\"';|$&%]")
+
+_PS_ENC_RE = re.compile(
+    r"(?i)(?:^|\s)-e(?:n(?:c(?:o(?:d(?:e(?:d(?:c(?:o(?:m(?:m(?:a(?:nd)?)?)?)?)?)?)?)?)?)?)?)?(?=\s|$|:|=)"
+)
+_POWERSHELL_PARENTS = frozenset({"powershell.exe", "powershell_ise.exe", "pwsh.exe"})
 
 OFFICE_PARENTS = frozenset(
     {"winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "onenote.exe", "msaccess.exe"}
@@ -67,17 +74,15 @@ DENSE_FEATURE_NAMES = (
     "net_connects_60s",
     "files_written_60s",
 )
+
 NGRAM_DIMS = 1024
 
 
 def shannon_entropy(text: str) -> float:
     if not text:
         return 0.0
-    counts: dict[str, int] = defaultdict(int)
-    for char in text:
-        counts[char] += 1
     length = len(text)
-    return -sum((count / length) * math.log2(count / length) for count in counts.values())
+    return -sum((count / length) * math.log2(count / length) for count in Counter(text).values())
 
 
 def _dense_row(
@@ -94,7 +99,7 @@ def _dense_row(
     entropy = shannon_entropy(cmdline)
     has_base64 = 1.0 if _BASE64_RE.search(cmdline) else 0.0
     has_hex = 1.0 if _HEX_RE.search(cmdline) else 0.0
-    has_enc = 1.0 if re.search(r"(?i)(?:\s|^)-e(?:nc?(?:odedcommand)?)?\s", cmdline) else 0.0
+    has_enc = 1.0 if parent_base in _POWERSHELL_PARENTS and _PS_ENC_RE.search(cmdline) else 0.0
     has_iex = 1.0 if re.search(r"(?i)\biex\b|invoke-expression", cmdline) else 0.0
     has_dl = (
         1.0
@@ -114,7 +119,7 @@ def _dense_row(
     parent_browser = 1.0 if parent_base in BROWSER_PARENTS else 0.0
     pair_flag = 1.0 if (parent_base, image_base) in SUSPICIOUS_PAIRS else 0.0
 
-    net_conns, file_writes = effect_counts
+    net_connects, file_writes = effect_counts
 
     return [
         float(cmd_len),
@@ -133,7 +138,7 @@ def _dense_row(
         parent_browser,
         pair_flag,
         float(session_count),
-        float(net_conns),
+        float(net_connects),
         float(file_writes),
     ]
 
@@ -150,20 +155,17 @@ def _compute_session_counts(
 
     counts: dict[int, int] = {}
     for sibling_list in by_parent.values():
-        left = 0
-        for right in range(len(sibling_list)):
-            right_time = sibling_list[right][1].time_created
-            while right_time - sibling_list[left][1].time_created > SESSION_WINDOW:
-                left += 1
-            window_size = right - left + 1
-            counts[sibling_list[right][0]] = window_size - 1
+        times = [pair[1].time_created for pair in sibling_list]
+        for right, (orig_idx, record) in enumerate(sibling_list):
+            window_start = record.time_created - SESSION_WINDOW
+            left = bisect.bisect_left(times, window_start)
+            counts[orig_idx] = (right - left + 1) - 1
     return counts
 
 
 def _compute_effect_counts(
     process_records: Sequence[SysmonRecord], all_records: Sequence[SysmonRecord]
 ) -> dict[int, tuple[int, int]]:
-    """For each process-create record idx, (net_conns_60s, file_writes_60s) by ProcessGuid."""
     net_by_guid: dict[str, list] = defaultdict(list)
     file_by_guid: dict[str, list] = defaultdict(list)
     for record in all_records:
@@ -186,8 +188,9 @@ def _compute_effect_counts(
         end = start + EFFECTS_WINDOW
         net_times = net_by_guid.get(guid, [])
         file_times = file_by_guid.get(guid, [])
-        net = sum(1 for t in net_times if start <= t <= end)
-        files = sum(1 for t in file_times if start <= t <= end)
+
+        net = bisect.bisect_left(net_times, end) - bisect.bisect_left(net_times, start)
+        files = bisect.bisect_left(file_times, end) - bisect.bisect_left(file_times, start)
         counts[idx] = (net, files)
     return counts
 
@@ -196,7 +199,6 @@ def build_features(
     process_records: Sequence[SysmonRecord],
     all_records: Sequence[SysmonRecord] | None = None,
     *,
-    fit_vectorizer: bool = True,
     vectorizer: HashingVectorizer | None = None,
 ) -> tuple[csr_matrix, HashingVectorizer]:
     if all_records is None:
@@ -230,5 +232,4 @@ def build_features(
 
 
 def feature_names() -> list[str]:
-    """Names for the dense block — n-gram dims are anonymous hashed buckets."""
     return list(DENSE_FEATURE_NAMES) + [f"ngram_{i}" for i in range(NGRAM_DIMS)]

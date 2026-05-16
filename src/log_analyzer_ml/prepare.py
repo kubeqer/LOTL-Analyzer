@@ -1,33 +1,8 @@
-"""Normalize the three public Sysmon LOTL corpora into our schema.
-
-Reads from ``../../datasets/`` (relative to this file), walks each repo's
-native layout, and writes a ``manifest.json`` next to each capture so the
-loaders in ``log_analyzer_ml.loaders`` can label them.
-
-Per source:
-
-- **OTRF Security-Datasets** — extracts any ZIPs containing JSONL, parses the
-  sibling ``dataset.yaml`` for ``attack_mappings``, and emits ``manifest.json``.
-  Captures listed as ``benign`` in the YAML get ``malicious=false``; everything
-  else is treated as malicious.
-
-- **Splunk attack_data** — reads the ``attack_dataset.id`` field from each
-  ``*_manifest.yml`` to recover the T-code; the technique encoded in the
-  parent directory is used as a fallback. Sysmon-format files are picked up
-  via the ``attack_data`` loader dialect.
-
-- **EVTX-ATTACK-SAMPLES** — runs ``evtx_dump -o jsonl`` on every ``.evtx``
-  file, infers the technique from the filename / parent folder, and writes a
-  ``manifest.json``. Skipped silently if ``evtx_dump`` is not on PATH.
-
-The script is idempotent — re-running only redoes work where the output is
-missing or older than the input.
-"""
-
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -44,10 +19,8 @@ OTRF_ROOT = DATASETS / "Security-Datasets" / "datasets"
 ATTACK_DATA_ROOT = DATASETS / "attack_data" / "datasets" / "attack_techniques"
 EVTX_SAMPLES_ROOT = DATASETS / "EVTX-ATTACK-SAMPLES"
 
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("prepare")
-
 
 T_CODE_RE = re.compile(r"\bT\d{4}(?:\.\d{3})?\b")
 
@@ -66,11 +39,7 @@ def _write_manifest(capture_dir: Path, malicious: bool, techniques: list[str]) -
     (capture_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
-# ---------------------------------------------------------------------------
-# OTRF Security-Datasets
-# ---------------------------------------------------------------------------
 def _otrf_techniques_from_yaml(payload: dict | list | None) -> tuple[list[str], bool]:
-    """Pull techniques and the malicious flag from an OTRF dataset.yaml."""
     if not isinstance(payload, dict):
         return [], True
     techniques: list[str] = []
@@ -91,7 +60,6 @@ def _otrf_techniques_from_yaml(payload: dict | list | None) -> tuple[list[str], 
 
 
 def _otrf_relative_from_link(link: str) -> Path | None:
-    """Map an OTRF GitHub raw URL to its on-disk path under ``datasets/``."""
     marker = "/datasets/"
     idx = link.find(marker)
     if idx == -1:
@@ -100,15 +68,6 @@ def _otrf_relative_from_link(link: str) -> Path | None:
 
 
 def prepare_otrf(root: Path) -> int:
-    """Walk every ``_metadata/*.yaml`` and materialize the Host-type captures.
-
-    OTRF puts metadata in a sibling ``_metadata/`` directory and refers to the
-    actual capture file by its public GitHub URL. We resolve that URL back to a
-    local path under ``root``, extract the ZIP next to itself, normalize the
-    inner JSON to ``.jsonl`` (the loaders match by suffix), and drop a
-    ``manifest.json`` so labeling sees the technique list and ``malicious``
-    flag.
-    """
     if not root.exists():
         logger.info("OTRF not found at %s — skipping", root)
         return 0
@@ -157,9 +116,6 @@ def prepare_otrf(root: Path) -> int:
     return n_prepared
 
 
-# ---------------------------------------------------------------------------
-# Splunk attack_data
-# ---------------------------------------------------------------------------
 _SYSMON_FILENAMES = {"windows-sysmon.log", "sysmon.log", "windows-sysmon.json"}
 
 
@@ -192,7 +148,7 @@ def prepare_attack_data(root: Path) -> int:
     for capture_dir in sorted(p for p in root.rglob("*") if p.is_dir()):
         if not _is_attack_data_capture(capture_dir):
             continue
-        # Read manifest yaml if present.
+
         techniques: list[str] = []
         for manifest_yaml in capture_dir.glob("*manifest*.yml"):
             payload = _read_yaml(manifest_yaml)
@@ -205,7 +161,7 @@ def prepare_attack_data(root: Path) -> int:
             inferred = _attack_data_technique_from_path(capture_dir.relative_to(root))
             if inferred:
                 techniques.append(inferred)
-        # Normalize the sysmon log filename to .jsonl so the loader picks it up.
+
         for sysmon_file in capture_dir.iterdir():
             if not sysmon_file.is_file():
                 continue
@@ -214,17 +170,19 @@ def prepare_attack_data(root: Path) -> int:
                 target = sysmon_file.with_suffix(".jsonl")
                 if target.exists() and target.stat().st_mtime >= sysmon_file.stat().st_mtime:
                     continue
-                # The Splunk dumps are JSON-per-line already, so just copy with .jsonl.
-                shutil.copyfile(sysmon_file, target)
+                if target.exists():
+                    target.unlink()
+
+                try:
+                    os.link(sysmon_file, target)
+                except OSError:
+                    shutil.copyfile(sysmon_file, target)
         _write_manifest(capture_dir, malicious=True, techniques=techniques)
         n_prepared += 1
     logger.info("attack_data: %d captures prepared", n_prepared)
     return n_prepared
 
 
-# ---------------------------------------------------------------------------
-# EVTX-ATTACK-SAMPLES
-# ---------------------------------------------------------------------------
 def _evtx_dump_available() -> bool:
     return shutil.which("evtx_dump") is not None
 
@@ -263,10 +221,14 @@ def prepare_evtx_samples(root: Path) -> int:
                 ["evtx_dump", "-o", "jsonl", "-t", "1", "-f", str(jsonl_out), str(evtx_path)],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             )
-        except (FileNotFoundError, subprocess.CalledProcessError) as error:
+        except FileNotFoundError as error:
             logger.warning("evtx_dump failed for %s: %s", evtx_path, error)
+            continue
+        except subprocess.CalledProcessError as error:
+            stderr_excerpt = (error.stderr or b"")[:200].decode("utf-8", errors="replace").strip()
+            logger.warning("evtx_dump failed for %s: %s — %s", evtx_path, error, stderr_excerpt)
             continue
         techniques = _evtx_techniques_from_name(evtx_path, root)
         _write_manifest(capture_dir, malicious=True, techniques=techniques)
