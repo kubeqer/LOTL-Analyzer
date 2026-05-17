@@ -6,6 +6,8 @@ from collections.abc import Iterable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
+import yaml
+
 from .schema import SysmonRecord
 
 logger = logging.getLogger(__name__)
@@ -49,35 +51,41 @@ MANIFEST_FILENAMES = (
 )
 
 
+def _extract_techniques(raw_list: object) -> list[str]:
+    technique_ids: list[str] = []
+    if not isinstance(raw_list, list):
+        return technique_ids
+    for entry in raw_list:
+        raw = entry.get("technique") if isinstance(entry, dict) else entry
+        if raw is None:
+            continue
+        technique_ids.append(str(raw))
+    return technique_ids
+
+
 def _read_manifest(capture_dir: Path) -> tuple[list[str], bool]:
     for candidate in MANIFEST_FILENAMES:
         manifest = capture_dir / candidate
-        if manifest.exists():
+        if not manifest.exists():
+            continue
+        try:
+            text = manifest.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if manifest.suffix in (".json", ".jsonl"):
             try:
-                text = manifest.read_text(encoding="utf-8")
-            except OSError:
+                payload = json.loads(text)
+            except json.JSONDecodeError:
                 continue
-            if manifest.suffix in (".json", ".jsonl"):
-                try:
-                    payload = json.loads(text)
-                except json.JSONDecodeError:
-                    continue
-                techniques = payload.get("attack_mappings") or payload.get("techniques") or []
-                technique_ids: list[str] = []
-                for t in techniques:
-                    raw = t.get("technique") if isinstance(t, dict) else t
-                    if raw is None:
-                        continue
-                    technique_ids.append(str(raw))
-                return technique_ids, bool(payload.get("malicious", True))
-            technique_ids = []
-            for line in text.splitlines():
-                stripped = line.strip()
-                if stripped.startswith(("technique:", "- technique:", "id:")):
-                    value = stripped.split(":", 1)[1].strip().strip('"').strip("'")
-                    if value.startswith("T"):
-                        technique_ids.append(value)
-            return technique_ids, True
+        else:
+            try:
+                payload = yaml.safe_load(text)
+            except yaml.YAMLError:
+                continue
+        if not isinstance(payload, dict):
+            continue
+        raw = payload.get("attack_mappings") or payload.get("techniques") or []
+        return _extract_techniques(raw), bool(payload.get("malicious", True))
     return [], False
 
 
@@ -271,8 +279,16 @@ def load_directory(root: Path, dialect: str = "agent") -> Iterator[SysmonRecord]
 def load_all(paths: Iterable[tuple[Path, str]]) -> list[SysmonRecord]:
     records: list[SysmonRecord] = []
     for path, dialect in paths:
+        before = len(records)
         if path.is_dir():
             records.extend(load_directory(path, dialect=dialect))
         else:
             records.extend(load_capture(path, dialect=dialect))
+        logger.info(
+            "loaded %d records from %s (dialect=%s); cumulative=%d",
+            len(records) - before,
+            path,
+            dialect,
+            len(records),
+        )
     return records

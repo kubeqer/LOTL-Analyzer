@@ -51,7 +51,7 @@ def train_xgb(
 
     dtrain = xgb.DMatrix(x_train, label=y_train)
     dval = xgb.DMatrix(x_val, label=y_val)
-    evals_result: dict = {}
+    evals_result: dict[str, dict[str, list[float]]] = {}
     booster = xgb.train(
         params=params,
         dtrain=dtrain,
