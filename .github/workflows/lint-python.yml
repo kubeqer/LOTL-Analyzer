@@ -31,6 +31,6 @@ jobs:
         with:
           enable-cache: true
       - name: ruff check
-        run: uv run ruff check .
+        run: uvx run ruff check .
       - name: ruff format --check
-        run: uv run ruff format --check .
+        run: uvx run ruff format --check .
