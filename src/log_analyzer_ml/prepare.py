@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -41,7 +40,8 @@ def _write_manifest(capture_dir: Path, malicious: bool, techniques: list[str]) -
 
 def _otrf_techniques_from_yaml(payload: dict | list | None) -> tuple[list[str], bool]:
     if not isinstance(payload, dict):
-        return [], True
+        logger.warning("OTRF manifest payload is not a dict — treating as benign")
+        return [], False
     techniques: list[str] = []
     for mapping in payload.get("attack_mappings") or []:
         if isinstance(mapping, dict):
@@ -174,7 +174,7 @@ def prepare_attack_data(root: Path) -> int:
                     target.unlink()
 
                 try:
-                    os.link(sysmon_file, target)
+                    target.hardlink_to(sysmon_file)
                 except OSError:
                     shutil.copyfile(sysmon_file, target)
         _write_manifest(capture_dir, malicious=True, techniques=techniques)
@@ -208,11 +208,14 @@ def prepare_evtx_samples(root: Path) -> int:
     logger.info("preparing EVTX-ATTACK-SAMPLES at %s", root)
     n_prepared = 0
     for evtx_path in root.rglob("*.evtx"):
+        techniques = _evtx_techniques_from_name(evtx_path, root)
+        if not techniques:
+            logger.debug("skipping EVTX with no T-code in path: %s", evtx_path)
+            continue
         capture_dir = evtx_path.parent / evtx_path.stem
         capture_dir.mkdir(parents=True, exist_ok=True)
         jsonl_out = capture_dir / "events.jsonl"
         if jsonl_out.exists() and jsonl_out.stat().st_mtime >= evtx_path.stat().st_mtime:
-            techniques = _evtx_techniques_from_name(evtx_path, root)
             _write_manifest(capture_dir, malicious=True, techniques=techniques)
             n_prepared += 1
             continue
@@ -230,7 +233,6 @@ def prepare_evtx_samples(root: Path) -> int:
             stderr_excerpt = (error.stderr or b"")[:200].decode("utf-8", errors="replace").strip()
             logger.warning("evtx_dump failed for %s: %s — %s", evtx_path, error, stderr_excerpt)
             continue
-        techniques = _evtx_techniques_from_name(evtx_path, root)
         _write_manifest(capture_dir, malicious=True, techniques=techniques)
         n_prepared += 1
     logger.info("EVTX-ATTACK-SAMPLES: %d captures prepared", n_prepared)

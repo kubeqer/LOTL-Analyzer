@@ -164,7 +164,6 @@ def evaluate_capture_level(
 def _max_recall_at_precision(
     precisions: np.ndarray, recalls: np.ndarray, target: float
 ) -> tuple[float, float]:
-
     p = precisions[:-1]
     r = recalls[:-1]
     mask = (p >= target) & (r > 0)

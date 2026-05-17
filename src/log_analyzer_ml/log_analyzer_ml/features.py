@@ -24,10 +24,14 @@ _URL_RE = re.compile(r"https?://[^\s\"']+", re.IGNORECASE)
 
 _SPECIAL_RE = re.compile(r"[`^\"';|$&%]")
 
-_PS_ENC_RE = re.compile(
-    r"(?i)(?:^|\s)-e(?:n(?:c(?:o(?:d(?:e(?:d(?:c(?:o(?:m(?:m(?:a(?:nd)?)?)?)?)?)?)?)?)?)?)?)?(?=\s|$|:|=)"
+_PS_ENC_ABBREVS = frozenset(
+    {"e", "en", "enc", "enco", "encod", "encode", "encoded", "encodedcommand"}
 )
+_PS_FLAG_RE = re.compile(r"(?<![A-Za-z0-9])-([A-Za-z]+)(?=[\s=:]|$)")
 _POWERSHELL_PARENTS = frozenset({"powershell.exe", "powershell_ise.exe", "pwsh.exe"})
+
+_IEX_RE = re.compile(r"(?i)\biex\b|invoke-expression")
+_DOWNLOAD_RE = re.compile(r"(?i)downloadstring|downloadfile|webclient|invoke-webrequest")
 
 OFFICE_PARENTS = frozenset(
     {"winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "onenote.exe", "msaccess.exe"}
@@ -77,6 +81,17 @@ DENSE_FEATURE_NAMES = (
 
 NGRAM_DIMS = 1024
 
+NGRAM_VECTORIZER_PARAMS: dict[str, object] = {
+    "analyzer": "char_wb",
+    "ngram_range": (3, 5),
+    "alternate_sign": False,
+    "norm": "l2",
+}
+
+
+def _has_ps_encoded_flag(cmdline: str) -> bool:
+    return any(match.group(1).lower() in _PS_ENC_ABBREVS for match in _PS_FLAG_RE.finditer(cmdline))
+
 
 def shannon_entropy(text: str) -> float:
     if not text:
@@ -99,13 +114,9 @@ def _dense_row(
     entropy = shannon_entropy(cmdline)
     has_base64 = 1.0 if _BASE64_RE.search(cmdline) else 0.0
     has_hex = 1.0 if _HEX_RE.search(cmdline) else 0.0
-    has_enc = 1.0 if parent_base in _POWERSHELL_PARENTS and _PS_ENC_RE.search(cmdline) else 0.0
-    has_iex = 1.0 if re.search(r"(?i)\biex\b|invoke-expression", cmdline) else 0.0
-    has_dl = (
-        1.0
-        if re.search(r"(?i)downloadstring|downloadfile|webclient|invoke-webrequest", cmdline)
-        else 0.0
-    )
+    has_enc = 1.0 if parent_base in _POWERSHELL_PARENTS and _has_ps_encoded_flag(cmdline) else 0.0
+    has_iex = 1.0 if _IEX_RE.search(cmdline) else 0.0
+    has_dl = 1.0 if _DOWNLOAD_RE.search(cmdline) else 0.0
     url_count = float(len(_URL_RE.findall(cmdline)))
     special_ratio = len(_SPECIAL_RE.findall(cmdline)) / cmd_len if cmd_len else 0.0
     path_depth = float(image_path.count("\\") + image_path.count("/"))
@@ -218,13 +229,7 @@ def build_features(
     dense = csr_matrix(np.asarray(dense_rows, dtype=np.float32))
 
     if vectorizer is None:
-        vectorizer = HashingVectorizer(
-            n_features=NGRAM_DIMS,
-            analyzer="char_wb",
-            ngram_range=(3, 5),
-            alternate_sign=False,
-            norm="l2",
-        )
+        vectorizer = HashingVectorizer(n_features=NGRAM_DIMS, **NGRAM_VECTORIZER_PARAMS)
     sparse_ngrams = vectorizer.transform(cmdlines).astype(np.float32)
 
     matrix = hstack([dense, sparse_ngrams], format="csr")

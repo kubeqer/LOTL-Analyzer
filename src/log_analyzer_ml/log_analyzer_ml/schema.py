@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 SYSMON_PROCESS_CREATE = 1
 SYSMON_NETWORK_CONNECT = 3
@@ -50,19 +49,3 @@ class SysmonRecord:
     @property
     def parent_process_guid(self) -> str:
         return self.data.get("ParentProcessGuid", "")
-
-
-def to_dict(record: SysmonRecord) -> dict[str, Any]:
-    return {
-        "record_id": record.record_id,
-        "event_id": record.event_id,
-        "level": record.level,
-        "provider": record.provider,
-        "channel": record.channel,
-        "computer": record.computer,
-        "time_created": record.time_created.isoformat(),
-        "data": record.data,
-        "capture_id": record.capture_id,
-        "capture_techniques": list(record.capture_techniques),
-        "capture_is_malicious": record.capture_is_malicious,
-    }
