@@ -4,18 +4,18 @@ on:
   push:
     branches: [master]
     paths:
-      - "src/sysmon_agent/**"
+      - "apps/sysmon_agent/**"
       - ".github/workflows/lint-rust.yml"
   pull_request:
     branches: [master]
     paths:
-      - "src/sysmon_agent/**"
+      - "apps/sysmon_agent/**"
       - ".github/workflows/lint-rust.yml"
   workflow_dispatch:
 
 defaults:
   run:
-    working-directory: src/sysmon_agent
+    working-directory: apps/sysmon_agent
 
 jobs:
   lint:
@@ -34,7 +34,7 @@ jobs:
       - name: Cache cargo registry and target
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src/sysmon_agent
+          workspaces: apps/sysmon_agent
       - name: cargo fmt --check
         run: cargo fmt --check
       - name: cargo check

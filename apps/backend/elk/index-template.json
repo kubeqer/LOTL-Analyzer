@@ -1,0 +1,80 @@
+{
+  "index_patterns": ["lotl-alerts*"],
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": "true",
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "message":    { "type": "text" },
+        "tags":       { "type": "keyword" },
+        "event": {
+          "properties": {
+            "kind":     { "type": "keyword" },
+            "category": { "type": "keyword" },
+            "type":     { "type": "keyword" },
+            "module":   { "type": "keyword" },
+            "dataset":  { "type": "keyword" },
+            "reason":   { "type": "text" }
+          }
+        },
+        "host": {
+          "properties": {
+            "name": { "type": "keyword" },
+            "id":   { "type": "keyword" }
+          }
+        },
+        "rule": {
+          "properties": {
+            "name":        { "type": "keyword" },
+            "description": { "type": "text" },
+            "ruleset":     { "type": "keyword" }
+          }
+        },
+        "threat": {
+          "properties": {
+            "framework": { "type": "keyword" },
+            "technique": {
+              "type": "nested",
+              "properties": {
+                "id":   { "type": "keyword" },
+                "name": { "type": "keyword" }
+              }
+            },
+            "tactic": {
+              "type": "nested",
+              "properties": {
+                "id":   { "type": "keyword" },
+                "name": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "process": {
+          "properties": {
+            "involved": {
+              "type": "nested",
+              "properties": {
+                "parent":       { "type": "keyword" },
+                "image":        { "type": "keyword" },
+                "command_line": { "type": "text" }
+              }
+            }
+          }
+        },
+        "lotl": {
+          "properties": {
+            "detected_by":          { "type": "keyword" },
+            "rationale":            { "type": "text" },
+            "recommended_response": { "type": "text" },
+            "raw_event_count":      { "type": "integer" }
+          }
+        }
+      }
+    }
+  }
+}

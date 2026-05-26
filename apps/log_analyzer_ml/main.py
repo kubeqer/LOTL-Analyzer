@@ -7,11 +7,11 @@ import mlflow
 import mlflow.xgboost
 import numpy as np
 
-from log_analyzer_ml.cv import log_cv_block, run_cv
-from log_analyzer_ml.features import build_features
-from log_analyzer_ml.pipeline import build_strata, load_and_label, load_sources
-from log_analyzer_ml.splitting import stratified_capture_kfold
-from log_analyzer_ml.tracking import log_top_features, save_best_model
+from train_utils.cv import log_cv_block, run_cv
+from train_utils.features import build_features
+from train_utils.pipeline import build_strata, load_and_label, load_sources
+from train_utils.splitting import stratified_capture_kfold
+from train_utils.tracking import log_top_features, save_best_model
 
 HERE = Path(__file__).parent
 REPO_ROOT = HERE.parent.parent
