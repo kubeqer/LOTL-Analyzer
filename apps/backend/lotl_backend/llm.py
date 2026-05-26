@@ -16,7 +16,7 @@ def get_client() -> AsyncOpenAI:
     if _client is None:
         _client = AsyncOpenAI(
             base_url=settings.llm_base_url,
-            api_key="not-needed",
+            api_key=settings.llm_api_key,
             timeout=settings.llm_timeout_seconds,
         )
     return _client
@@ -33,6 +33,8 @@ async def chat_json(system: str, user: str) -> str:
         temperature=0.0,
         response_format={"type": "json_object"},
     )
+    if not response.choices:
+        return "{}"
     return response.choices[0].message.content or "{}"
 
 
@@ -46,4 +48,6 @@ async def chat_text(system: str, user: str) -> str:
         ],
         temperature=0.2,
     )
+    if not response.choices:
+        return ""
     return response.choices[0].message.content or ""

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import logging
 
+import httpx
+
 from ..llm import chat_json
 from ..rag.service import query as rag_query
 from ..schema import SysmonEvents
@@ -72,7 +74,7 @@ async def detect_rag(window: SysmonEvents) -> tuple[bool, dict[str, object]]:
     try:
         raw = await chat_json(SYSTEM_PROMPT, user_prompt)
         verdict = json.loads(raw)
-    except Exception as error:
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as error:
         logger.warning("LLM verdict failed: %s", error)
         return False, {"error": str(error)}
 

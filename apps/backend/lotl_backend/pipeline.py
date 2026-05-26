@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -21,12 +22,12 @@ async def detect_lotl_attack(sysmon_events: SysmonEvents) -> None:
         "events": len(sysmon_events.events),
     }
 
-    is_detected_yara, yara_hits = detect_yara(sysmon_events)
+    is_detected_yara, yara_hits = await asyncio.to_thread(detect_yara, sysmon_events)
     detector_context["yara_hits"] = yara_hits
     detected_by = "yara"
 
     if not is_detected_yara:
-        is_detected_ml, ml_score = detect_ml(sysmon_events)
+        is_detected_ml, ml_score = await asyncio.to_thread(detect_ml, sysmon_events)
         detector_context["ml_score"] = ml_score
         detected_by = "ml"
 

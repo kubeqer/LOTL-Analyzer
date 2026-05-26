@@ -20,6 +20,8 @@ SYSMON_FILE_CREATE = 11
 SESSION_WINDOW = timedelta(minutes=5)
 EFFECTS_WINDOW = timedelta(seconds=60)
 
+TEMP_PATH_MARKERS = ("\\temp\\", "\\appdata\\local\\temp\\", "/tmp/")
+
 EPOCH = datetime(1970, 1, 1)
 
 _BASE64_RE = re.compile(r"[A-Za-z0-9+/]{24,}={0,2}")
@@ -139,11 +141,7 @@ def _dense_row(
     url_count = float(len(_URL_RE.findall(cmdline)))
     special_ratio = len(_SPECIAL_RE.findall(cmdline)) / cmd_len if cmd_len else 0.0
     path_depth = float(image_path.count("\\") + image_path.count("/"))
-    in_temp = (
-        1.0
-        if any(s in image_path for s in ("\\temp\\", "\\appdata\\local\\temp\\", "/tmp/"))
-        else 0.0
-    )
+    in_temp = 1.0 if any(marker in image_path for marker in TEMP_PATH_MARKERS) else 0.0
     renamed_image = 1.0 if original and original != image_base else 0.0
     parent_office = 1.0 if parent_base in OFFICE_PARENTS else 0.0
     parent_browser = 1.0 if parent_base in BROWSER_PARENTS else 0.0

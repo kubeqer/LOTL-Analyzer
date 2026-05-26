@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -14,6 +15,7 @@ from .store import RetrievedChunk, get_store
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
+_seed_task: asyncio.Task[dict[str, int]] | None = None
 
 
 async def query(question: str, top_k: int | None = None) -> list[RetrievedChunk]:
@@ -26,13 +28,13 @@ async def query(question: str, top_k: int | None = None) -> list[RetrievedChunk]
 
 
 async def start_scheduler() -> None:
-    global _scheduler
+    global _scheduler, _seed_task
     if _scheduler is not None:
         return
     store = get_store()
     if store.count() == 0:
         logger.info("RAG store empty; seeding in background")
-        asyncio.create_task(run_ingestion_cycle())
+        _seed_task = asyncio.create_task(run_ingestion_cycle())
     scheduler = AsyncIOScheduler()
     scheduler.add_job(
         run_ingestion_cycle,
@@ -48,8 +50,13 @@ async def start_scheduler() -> None:
 
 
 async def stop_scheduler() -> None:
-    global _scheduler
+    global _scheduler, _seed_task
     if _scheduler is None:
         return
     _scheduler.shutdown(wait=False)
     _scheduler = None
+    if _seed_task is not None and not _seed_task.done():
+        _seed_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await _seed_task
+    _seed_task = None

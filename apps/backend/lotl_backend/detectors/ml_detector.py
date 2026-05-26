@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import xgboost as xgb
-from scipy.sparse import csr_matrix
 
 from ..config import settings
 from ..schema import SysmonEvents
@@ -37,7 +36,7 @@ class MlDetector:
         matrix, _ = build_features(window.events)
         if matrix.shape[0] == 0:
             return (0.0, [])
-        dmatrix = xgb.DMatrix(csr_matrix(matrix))
+        dmatrix = xgb.DMatrix(matrix)
         scores = self._booster.predict(dmatrix)
         scores_list = [float(s) for s in np.asarray(scores).ravel().tolist()]
         return (max(scores_list), scores_list)

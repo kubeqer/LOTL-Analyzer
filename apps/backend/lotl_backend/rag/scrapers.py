@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from collections.abc import Iterable
 
@@ -53,7 +54,7 @@ async def fetch_lolbas() -> list[Document]:
             response = await client.get(url)
             response.raise_for_status()
             entries = response.json()
-    except Exception as error:
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as error:
         logger.warning("LOLBAS fetch failed: %s", error)
         return []
 
@@ -102,7 +103,7 @@ async def fetch_advisory_feed(url: str) -> list[Document]:
             response = await client.get(url)
             response.raise_for_status()
             raw = response.text
-    except Exception as error:
+    except httpx.HTTPError as error:
         logger.warning("advisory feed %s failed: %s", url, error)
         return []
 

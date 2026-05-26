@@ -81,7 +81,7 @@ async def generate_alert(
     try:
         raw = await chat_json(REPORT_SYSTEM, user_prompt)
         report = json.loads(raw)
-    except Exception as error:
+    except (httpx.HTTPError, json.JSONDecodeError, ValueError) as error:
         logger.warning("alert report generation failed: %s", error)
         report = {}
 
@@ -151,6 +151,6 @@ async def send_alert(alert: Alert) -> bool:
             response.raise_for_status()
         logger.info("alert shipped host=%s detector=%s", alert.host_key, alert.detected_by)
         return True
-    except Exception as error:
+    except httpx.HTTPError as error:
         logger.error("ELK shipping failed: %s", error)
         return False

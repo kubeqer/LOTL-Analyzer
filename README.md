@@ -3,14 +3,14 @@
 A three-part system for detecting Living Off The Land (LOTL) attacks on
 Windows hosts via Sysmon telemetry.
 
-- **`src/sysmon_agent/`** — Rust agent reading the
+- **`apps/sysmon_agent/`** — Rust agent reading the
   `Microsoft-Windows-Sysmon/Operational` event channel, redacting secrets
   in command-line fields, and shipping JSON batches over HTTPS.
-- **`src/log_analyzer_ml/`** — Python ML pipeline that consumes Sysmon
+- **`apps/log_analyzer_ml/`** — Python ML pipeline that consumes Sysmon
   events from public research corpora, labels each process-creation event
   as LOTL/not-LOTL via LOLBAS ∩ ATT&CK with process-tree propagation, and
   trains an XGBoost classifier with MLflow experiment tracking.
-- **`src/backend/`** — FastAPI detection backend. Ingests Sysmon batches
+- **`apps/backend/`** — FastAPI detection backend. Ingests Sysmon batches
   from the agent, buffers events per host on a 60-second window, runs the
   three-tier cascade (YARA → ML → LLM+RAG), and ships ECS-shaped alerts
   to Elasticsearch. The RAG service refreshes its LOTL knowledge base
@@ -49,7 +49,7 @@ uv run python main.py
 uv run mlflow ui --backend-store-uri file://$(pwd)/data/mlruns
 ```
 
-This produces `src/log_analyzer_ml/data/lotl_xgb.json` plus
+This produces `apps/log_analyzer_ml/data/lotl_xgb.json` plus
 `lotl_xgb.sidecar.json`, which the backend loads as a black-box artifact.
 
 ### Run the detection backend
@@ -77,9 +77,9 @@ See **[docs/](docs/README.md)** for the design-rationale documentation:
 
 Subproject-specific run instructions:
 
-- [src/sysmon_agent/README.md](apps/sysmon_agent/README.md) — agent setup,
+- [apps/sysmon_agent/README.md](apps/sysmon_agent/README.md) — agent setup,
   configuration, Windows prerequisites
-- [src/log_analyzer_ml/README.md](apps/log_analyzer_ml/README.md) — ML
+- [apps/log_analyzer_ml/README.md](apps/log_analyzer_ml/README.md) — ML
   pipeline run instructions
-- [src/backend/README.md](apps/backend/README.md) — backend run instructions
+- [apps/backend/README.md](apps/backend/README.md) — backend run instructions
   and configuration knobs

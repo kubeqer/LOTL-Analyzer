@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class SysmonEvent(BaseModel):
@@ -28,7 +32,7 @@ class IngestPayload(BaseModel):
 class SysmonEvents:
     host_key: str
     events: list[SysmonEvent] = field(default_factory=list)
-    window_started_at: datetime = field(default_factory=datetime.utcnow)
+    window_started_at: datetime = field(default_factory=_utc_now)
 
     def __len__(self) -> int:
         return len(self.events)
@@ -45,4 +49,4 @@ class Alert:
     involved_processes: list[dict[str, str]]
     rationale: str
     raw_event_count: int
-    detected_at: datetime = field(default_factory=datetime.utcnow)
+    detected_at: datetime = field(default_factory=_utc_now)

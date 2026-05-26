@@ -63,12 +63,12 @@ class VectorStore:
         dists = (result.get("distances") or [[]])[0]
         return [
             RetrievedChunk(
-                doc_id=ids[i],
-                text=docs[i],
-                metadata=dict(metas[i] or {}),
-                distance=float(dists[i]),
+                doc_id=doc_id,
+                text=text,
+                metadata=dict(meta or {}),
+                distance=float(distance),
             )
-            for i in range(len(ids))
+            for doc_id, text, meta, distance in zip(ids, docs, metas, dists, strict=True)
         ]
 
 

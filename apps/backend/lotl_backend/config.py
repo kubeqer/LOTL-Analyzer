@@ -27,8 +27,9 @@ class Settings(BaseSettings):
 
     yara_rules_dir: Path = HERE / "detectors" / "yara_rules"
 
-    llm_base_url: str = "http://localhost:8080/v1"
+    llm_base_url: str = "http://localhost:8000/v1"
     llm_model: str = "meta-llama/Llama-3.1-8B-Instruct"
+    llm_api_key: str = "not-needed"
     llm_timeout_seconds: float = 30.0
 
     rag_store_dir: Path = BACKEND_ROOT / "data" / "rag_store"

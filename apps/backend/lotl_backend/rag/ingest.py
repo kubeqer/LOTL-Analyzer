@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 
@@ -11,6 +12,7 @@ from .store import Document, get_store
 logger = logging.getLogger(__name__)
 
 _state = {"last_run": None, "running": False}
+_state_lock = asyncio.Lock()
 
 
 def _chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
@@ -42,10 +44,11 @@ def _split_document(doc: Document) -> list[Document]:
 
 
 async def run_ingestion_cycle() -> dict[str, int]:
-    if _state["running"]:
-        logger.info("ingestion cycle already running, skipping")
-        return {"skipped": 1}
-    _state["running"] = True
+    async with _state_lock:
+        if _state["running"]:
+            logger.info("ingestion cycle already running, skipping")
+            return {"skipped": 1}
+        _state["running"] = True
     try:
         logger.info("ingestion cycle starting")
         lolbas_docs = await fetch_lolbas()
