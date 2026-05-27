@@ -1,0 +1,17 @@
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: apps/backend/Dockerfile
+    image: lotl-backend:local
+    container_name: lotl-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - rag_data:/data
+
+volumes:
+  rag_data:

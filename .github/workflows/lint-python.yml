@@ -4,24 +4,29 @@ on:
   push:
     branches: [master]
     paths:
-      - "src/log_analyzer_ml/**"
+      - "apps/backend/**"
+      - "apps/log_analyzer_ml/**"
       - ".github/workflows/lint-python.yml"
   pull_request:
     branches: [master]
     paths:
-      - "src/log_analyzer_ml/**"
+      - "apps/backend/**"
+      - "apps/log_analyzer_ml/**"
       - ".github/workflows/lint-python.yml"
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: src/log_analyzer_ml
-
 jobs:
   lint:
-    name: ruff check + format
+    name: ruff check + format (${{ matrix.app }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [backend, log_analyzer_ml]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
 
     steps:
       - name: Checkout

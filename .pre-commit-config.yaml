@@ -4,19 +4,19 @@ repos:
     hooks:
       - id: sub-pre-commit
         alias: sysmon_agent
-        name: "pre-commit for src/sysmon_agent/"
-        args: ["-p", "src/sysmon_agent"]
-        files: "^src/sysmon_agent/.*"
+        name: "pre-commit for apps/sysmon_agent/"
+        args: ["-p", "apps/sysmon_agent"]
+        files: "^apps/sysmon_agent/.*"
         stages: ["pre-commit"]
       - id: sub-pre-commit
         alias: log_analyzer_ml
-        name: "pre-commit for src/log_analyzer_ml/"
-        args: [ "-p", "src/log_analyzer_ml" ]
-        files: "^src/log_analyzer_ml/.*"
+        name: "pre-commit for apps/log_analyzer_ml/"
+        args: [ "-p", "apps/log_analyzer_ml" ]
+        files: "^apps/log_analyzer_ml/.*"
         stages: [ "pre-commit" ]
-#      - id: sub-pre-commit
-#        alias: backend
-#        name: "pre-commit for src/backend/"
-#        args: ["-p", "src/backend"]
-#        files: "^src/backend/.*"
-#        stages: ["pre-commit"]
+      - id: sub-pre-commit
+        alias: backend
+        name: "pre-commit for apps/backend/"
+        args: ["-p", "apps/backend"]
+        files: "^apps/backend/.*"
+        stages: ["pre-commit"]
