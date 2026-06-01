@@ -1,5 +1,5 @@
 {
-  "index_patterns": ["lotl-alerts*"],
+  "index_patterns": ["lotl-alerts-backend-*"],
   "priority": 100,
   "template": {
     "settings": {

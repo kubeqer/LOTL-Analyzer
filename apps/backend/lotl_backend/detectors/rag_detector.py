@@ -28,6 +28,19 @@ USER_TEMPLATE = (
     "Decide whether this window represents a LOTL attack. Return JSON only."
 )
 
+VERDICT_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["is_attack", "confidence", "technique", "mitre_ids", "rationale"],
+    "properties": {
+        "is_attack": {"type": "boolean"},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "technique": {"type": "string"},
+        "mitre_ids": {"type": "array", "items": {"type": "string"}},
+        "rationale": {"type": "string"},
+    },
+}
+
 
 def _summarize_event(event_data: dict[str, str]) -> str:
     image = event_data.get("Image", "")
@@ -72,7 +85,9 @@ async def detect_rag(window: SysmonEvents) -> tuple[bool, dict[str, object]]:
         events=_events_block(window),
     )
     try:
-        raw = await chat_json(SYSTEM_PROMPT, user_prompt)
+        raw = await chat_json(
+            SYSTEM_PROMPT, user_prompt, json_schema=VERDICT_SCHEMA, schema_name="verdict"
+        )
         verdict = json.loads(raw)
     except (httpx.HTTPError, json.JSONDecodeError, ValueError) as error:
         logger.warning("LLM verdict failed: %s", error)

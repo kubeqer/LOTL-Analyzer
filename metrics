@@ -1,0 +1,97 @@
+/home/jpluta/.local/bin/uv run /home/jpluta/PycharmProjects/LOTL-Analyzer/src/log_analyzer_ml/.venv/bin/python /home/jpluta/PycharmProjects/LOTL-Analyzer/src/log_analyzer_ml/main.py
+/home/jpluta/PycharmProjects/LOTL-Analyzer/src/log_analyzer_ml/.venv/lib/python3.12/site-packages/mlflow/tracking/_tracking_service/utils.py:184: FutureWarning: The filesystem tracking backend (e.g., './mlruns') is deprecated as of February 2026. Consider transitioning to a database backend (e.g., 'sqlite:///mlflow.db') to take advantage of the latest MLflow features. See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store for migration guidance.
+  return FileStore(store_uri, store_uri)
+2026-05-16 20:46:08,047 [INFO] lotl: MLflow run 87b3f7b4798f44249e5e117c3cc0623b — view with: uv run mlflow ui --backend-store-uri file:///home/jpluta/PycharmProjects/LOTL-Analyzer/src/log_analyzer_ml/data/mlruns
+2026-05-16 20:46:08,051 [INFO] log_analyzer_ml.pipeline: Loading from 3 source(s)...
+2026-05-16 20:46:27,352 [INFO] log_analyzer_ml.loaders: loaded 1106303 records from /home/jpluta/PycharmProjects/LOTL-Analyzer/datasets/Security-Datasets/datasets (dialect=attack_data); cumulative=1106303
+2026-05-16 20:46:35,596 [INFO] log_analyzer_ml.loaders: loaded 3 records from /home/jpluta/PycharmProjects/LOTL-Analyzer/datasets/attack_data/datasets/attack_techniques (dialect=attack_data); cumulative=1106306
+2026-05-16 20:46:36,209 [INFO] log_analyzer_ml.loaders: loaded 37364 records from /home/jpluta/PycharmProjects/LOTL-Analyzer/datasets/EVTX-ATTACK-SAMPLES (dialect=evtx); cumulative=1143670
+2026-05-16 20:46:36,209 [INFO] log_analyzer_ml.pipeline: Loaded 1143670 raw Sysmon events
+2026-05-16 20:46:36,209 [INFO] log_analyzer_ml.pipeline: Labeling per-capture (LOLBin basename ∪ LOTL technique tree closure)...
+2026-05-16 20:46:36,369 [INFO] log_analyzer_ml.pipeline: Process-create events: 4045 (pos=879, neg=3166)
+2026-05-16 20:46:36,373 [INFO] lotl: Building features (dense + hashed char n-grams)...
+2026-05-16 20:46:37,384 [INFO] log_analyzer_ml.pipeline: Distinct captures: 257
+2026-05-16 20:46:37,384 [INFO] log_analyzer_ml.pipeline: Strata: 15 raw → 18 refined; refined counts: {'mal_other_c2': 118, 'mal_other_c1': 72, 'mal_other_c0': 36, 'T1197': 1, 'T1218.005': 3, 'T1218.004': 1, 'T1218': 3, 'T1218.010': 1, 'T1218.003': 1, 'T1218.001': 1, 'T1220': 1, 'T1059': 2, 'T1059.005': 2, 'T1047_c0': 4, 'T1047_c1': 2, 'T1053.005': 4, 'T1548.002': 1, 'T1105': 4}
+2026-05-16 20:46:37,390 [INFO] log_analyzer_ml.cv: Fold 1/5 — Train: 2185 (pos=410), Val: 893 (pos=337), Test: 967 events / 62 captures (pos_events=132)
+[0]	train-aucpr:0.93603	train-logloss:0.63450	val-aucpr:0.71621	val-logloss:0.65276
+[50]	train-aucpr:0.97616	train-logloss:0.11904	val-aucpr:0.87122	val-logloss:0.41689
+[99]	train-aucpr:0.97659	train-logloss:0.09885	val-aucpr:0.87869	val-logloss:0.43042
+2026-05-16 20:46:44,272 [INFO] log_analyzer_ml.cv: Fold 1 done — best_iter=49 val_logloss=0.4137 | EVENT ROC-AUC=0.9530 PR-AUC=0.8242 r@top5%=0.3636 | CAPTURE ROC-AUC=0.9943 PR-AUC=0.9982 r@top5%=0.0638 (47 pos / 62 total)
+2026-05-16 20:46:44,302 [INFO] log_analyzer_ml.cv: Fold 2/5 — Train: 2328 (pos=424), Val: 1033 (pos=248), Test: 684 events / 54 captures (pos_events=207)
+[0]	train-aucpr:0.91122	train-logloss:0.63615	val-aucpr:0.78863	val-logloss:0.64762
+[50]	train-aucpr:0.97675	train-logloss:0.11941	val-aucpr:0.91464	val-logloss:0.25185
+[100]	train-aucpr:0.97746	train-logloss:0.09928	val-aucpr:0.91744	val-logloss:0.22763
+[150]	train-aucpr:0.97797	train-logloss:0.09398	val-aucpr:0.92278	val-logloss:0.21670
+[197]	train-aucpr:0.97816	train-logloss:0.09242	val-aucpr:0.92504	val-logloss:0.21960
+2026-05-16 20:46:53,500 [INFO] log_analyzer_ml.cv: Fold 2 done — best_iter=147 val_logloss=0.2161 | EVENT ROC-AUC=0.9385 PR-AUC=0.8804 r@top5%=0.1643 | CAPTURE ROC-AUC=0.9861 PR-AUC=0.9902 r@top5%=0.1000 (30 pos / 54 total)
+2026-05-16 20:46:53,534 [INFO] log_analyzer_ml.cv: Fold 3/5 — Train: 2413 (pos=461), Val: 1254 (pos=342), Test: 378 events / 50 captures (pos_events=76)
+[0]	train-aucpr:0.89953	train-logloss:0.63228	val-aucpr:0.81401	val-logloss:0.63940
+[50]	train-aucpr:0.98278	train-logloss:0.10550	val-aucpr:0.93243	val-logloss:0.21836
+[100]	train-aucpr:0.98337	train-logloss:0.08555	val-aucpr:0.93557	val-logloss:0.20546
+[150]	train-aucpr:0.98354	train-logloss:0.08031	val-aucpr:0.93877	val-logloss:0.20166
+[183]	train-aucpr:0.98363	train-logloss:0.07981	val-aucpr:0.93925	val-logloss:0.20462
+2026-05-16 20:47:06,279 [INFO] log_analyzer_ml.cv: Fold 3 done — best_iter=133 val_logloss=0.2003 | EVENT ROC-AUC=0.9683 PR-AUC=0.9090 r@top5%=0.2500 | CAPTURE ROC-AUC=0.9924 PR-AUC=0.9971 r@top5%=0.0571 (35 pos / 50 total)
+2026-05-16 20:47:06,308 [INFO] log_analyzer_ml.cv: Fold 4/5 — Train: 2043 (pos=379), Val: 506 (pos=105), Test: 1496 events / 47 captures (pos_events=395)
+[0]	train-aucpr:0.92823	train-logloss:0.63346	val-aucpr:0.72827	val-logloss:0.64485
+[50]	train-aucpr:0.97763	train-logloss:0.11489	val-aucpr:0.89067	val-logloss:0.19801
+[100]	train-aucpr:0.97861	train-logloss:0.09621	val-aucpr:0.89023	val-logloss:0.19002
+[150]	train-aucpr:0.97905	train-logloss:0.09260	val-aucpr:0.89634	val-logloss:0.18993
+[163]	train-aucpr:0.97897	train-logloss:0.09179	val-aucpr:0.90040	val-logloss:0.19042
+2026-05-16 20:47:14,961 [INFO] log_analyzer_ml.cv: Fold 4 done — best_iter=113 val_logloss=0.1870 | EVENT ROC-AUC=0.9443 PR-AUC=0.8930 r@top5%=0.1899 | CAPTURE ROC-AUC=0.9475 PR-AUC=0.9698 r@top5%=0.0833 (24 pos / 47 total)
+2026-05-16 20:47:14,989 [INFO] log_analyzer_ml.cv: Fold 5/5 — Train: 2712 (pos=650), Val: 813 (pos=160), Test: 520 events / 44 captures (pos_events=69)
+[0]	train-aucpr:0.93221	train-logloss:0.63380	val-aucpr:0.74788	val-logloss:0.65112
+[50]	train-aucpr:0.98770	train-logloss:0.10494	val-aucpr:0.82560	val-logloss:0.34528
+[100]	train-aucpr:0.98868	train-logloss:0.08325	val-aucpr:0.84722	val-logloss:0.34423
+[132]	train-aucpr:0.98868	train-logloss:0.07957	val-aucpr:0.84898	val-logloss:0.35260
+2026-05-16 20:47:24,930 [INFO] log_analyzer_ml.cv: Fold 5 done — best_iter=82 val_logloss=0.3395 | EVENT ROC-AUC=0.9389 PR-AUC=0.7911 r@top5%=0.3768 | CAPTURE ROC-AUC=0.9434 PR-AUC=0.9711 r@top5%=0.0741 (27 pos / 44 total)
+2026-05-16 20:47:24,957 [INFO] log_analyzer_ml.cv: === 5-fold CV summary — EVENT-LEVEL (mean ± std) ===
+2026-05-16 20:47:24,957 [INFO] log_analyzer_ml.cv:   pr_auc                 = 0.8595 ± 0.0446
+2026-05-16 20:47:24,959 [INFO] log_analyzer_ml.cv:   roc_auc                = 0.9486 ± 0.0111
+2026-05-16 20:47:24,960 [INFO] log_analyzer_ml.cv:   f1_best                = 0.7779 ± 0.0407
+2026-05-16 20:47:24,962 [INFO] log_analyzer_ml.cv:   f1_threshold           = 0.6453 ± 0.1182
+2026-05-16 20:47:24,964 [INFO] log_analyzer_ml.cv:   precision_best         = 0.8699 ± 0.0374
+2026-05-16 20:47:24,966 [INFO] log_analyzer_ml.cv:   recall_best            = 0.7076 ± 0.0673
+2026-05-16 20:47:24,968 [INFO] log_analyzer_ml.cv:   precision_at_p80       = 0.8297 ± 0.0278
+2026-05-16 20:47:24,970 [INFO] log_analyzer_ml.cv:   recall_at_p80          = 0.7186 ± 0.0699
+2026-05-16 20:47:24,972 [INFO] log_analyzer_ml.cv:   precision_at_p95       = 0.9574 ± 0.0081
+2026-05-16 20:47:24,974 [INFO] log_analyzer_ml.cv:   recall_at_p95          = 0.5908 ± 0.0557
+2026-05-16 20:47:24,976 [INFO] log_analyzer_ml.cv:   precision_at_p99       = 0.9982 ± 0.0036
+2026-05-16 20:47:24,978 [INFO] log_analyzer_ml.cv:   recall_at_p99          = 0.5134 ± 0.0902
+2026-05-16 20:47:24,980 [INFO] log_analyzer_ml.cv:   recall_at_top_1pct     = 0.0545 ± 0.0172
+2026-05-16 20:47:24,982 [INFO] log_analyzer_ml.cv:   recall_at_top_5pct     = 0.2689 ± 0.0874
+2026-05-16 20:47:24,983 [INFO] log_analyzer_ml.cv:   recall_at_top_10pct    = 0.4965 ± 0.1276
+2026-05-16 20:47:24,985 [INFO] log_analyzer_ml.cv:   positives              = 175.8000 ± 120.2554
+2026-05-16 20:47:24,987 [INFO] log_analyzer_ml.cv:   negatives              = 633.2000 ± 292.1810
+2026-05-16 20:47:24,989 [INFO] log_analyzer_ml.cv:   imbalance_ratio        = 4.3855 ± 1.7576
+2026-05-16 20:47:24,991 [INFO] log_analyzer_ml.cv: === 5-fold CV summary — CAPTURE-LEVEL (mean ± std) ===
+2026-05-16 20:47:24,991 [INFO] log_analyzer_ml.cv:   pr_auc                 = 0.9853 ± 0.0124
+2026-05-16 20:47:24,993 [INFO] log_analyzer_ml.cv:   roc_auc                = 0.9727 ± 0.0225
+2026-05-16 20:47:24,995 [INFO] log_analyzer_ml.cv:   f1_best                = 0.9569 ± 0.0258
+2026-05-16 20:47:24,997 [INFO] log_analyzer_ml.cv:   f1_threshold           = 0.6198 ± 0.2055
+2026-05-16 20:47:24,999 [INFO] log_analyzer_ml.cv:   precision_best         = 0.9852 ± 0.0183
+2026-05-16 20:47:25,001 [INFO] log_analyzer_ml.cv:   recall_best            = 0.9330 ± 0.0584
+2026-05-16 20:47:25,003 [INFO] log_analyzer_ml.cv:   precision_at_p80       = 0.8138 ± 0.0040
+2026-05-16 20:47:25,005 [INFO] log_analyzer_ml.cv:   recall_at_p80          = 0.9843 ± 0.0193
+2026-05-16 20:47:25,007 [INFO] log_analyzer_ml.cv:   precision_at_p95       = 0.9620 ± 0.0061
+2026-05-16 20:47:25,009 [INFO] log_analyzer_ml.cv:   recall_at_p95          = 0.9330 ± 0.0584
+2026-05-16 20:47:25,011 [INFO] log_analyzer_ml.cv:   precision_at_p99       = 1.0000 ± 0.0000
+2026-05-16 20:47:25,013 [INFO] log_analyzer_ml.cv:   recall_at_p99          = 0.9045 ± 0.0497
+2026-05-16 20:47:25,014 [INFO] log_analyzer_ml.cv:   recall_at_top_1pct     = 0.0324 ± 0.0070
+2026-05-16 20:47:25,016 [INFO] log_analyzer_ml.cv:   recall_at_top_5pct     = 0.0757 ± 0.0151
+2026-05-16 20:47:25,018 [INFO] log_analyzer_ml.cv:   recall_at_top_10pct    = 0.1587 ± 0.0278
+2026-05-16 20:47:25,020 [INFO] log_analyzer_ml.cv:   positives              = 32.6000 ± 8.0647
+2026-05-16 20:47:25,023 [INFO] log_analyzer_ml.cv:   negatives              = 18.8000 ± 3.9192
+2026-05-16 20:47:25,025 [INFO] log_analyzer_ml.cv:   imbalance_ratio        = 0.6271 ± 0.2340
+2026-05-16 20:47:25,027 [INFO] log_analyzer_ml.tracking: Top features by gain (best model):
+2026-05-16 20:47:25,027 [INFO] log_analyzer_ml.tracking:   ngram_342                      gain=61.12
+2026-05-16 20:47:25,027 [INFO] log_analyzer_ml.tracking:   ngram_836                      gain=45.95
+2026-05-16 20:47:25,027 [INFO] log_analyzer_ml.tracking:   ngram_820                      gain=45.10
+2026-05-16 20:47:25,027 [INFO] log_analyzer_ml.tracking:   ngram_702                      gain=35.06
+2026-05-16 20:47:25,027 [INFO] log_analyzer_ml.tracking:   ngram_867                      gain=33.79
+2026-05-16 20:47:25,028 [INFO] log_analyzer_ml.tracking:   ngram_307                      gain=33.42
+2026-05-16 20:47:25,028 [INFO] log_analyzer_ml.tracking:   ngram_835                      gain=29.88
+2026-05-16 20:47:25,028 [INFO] log_analyzer_ml.tracking:   ngram_828                      gain=28.91
+2026-05-16 20:47:25,028 [INFO] log_analyzer_ml.tracking:   ngram_678                      gain=27.89
+2026-05-16 20:47:25,028 [INFO] log_analyzer_ml.tracking:   ngram_652                      gain=25.46
+2026-05-16 20:47:25,028 [INFO] log_analyzer_ml.tracking: Saving best-val-logloss model (fold 4, val_logloss=0.1870)
+2026-05-16 20:47:25,036 [INFO] log_analyzer_ml.tracking: Saved model to /home/jpluta/PycharmProjects/LOTL-Analyzer/src/log_analyzer_ml/data/lotl_xgb.json (sidecar: /home/jpluta/PycharmProjects/LOTL-Analyzer/src/log_analyzer_ml/data/lotl_xgb.sidecar.json)

@@ -31,6 +31,37 @@ REPORT_USER_TEMPLATE = (
     "Write the JSON report."
 )
 
+REPORT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "description",
+        "mitre_ids",
+        "technique",
+        "involved_processes",
+        "recommended_response",
+    ],
+    "properties": {
+        "description": {"type": "string"},
+        "mitre_ids": {"type": "array", "items": {"type": "string"}},
+        "technique": {"type": "string"},
+        "involved_processes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["parent", "image", "command_line"],
+                "properties": {
+                    "parent": {"type": "string"},
+                    "image": {"type": "string"},
+                    "command_line": {"type": "string"},
+                },
+            },
+        },
+        "recommended_response": {"type": "string"},
+    },
+}
+
 
 def _summarize_event(event_data: dict[str, str]) -> str:
     image = event_data.get("Image", "")
@@ -79,7 +110,9 @@ async def generate_alert(
         events=_events_block(window),
     )
     try:
-        raw = await chat_json(REPORT_SYSTEM, user_prompt)
+        raw = await chat_json(
+            REPORT_SYSTEM, user_prompt, json_schema=REPORT_SCHEMA, schema_name="alert_report"
+        )
         report = json.loads(raw)
     except (httpx.HTTPError, json.JSONDecodeError, ValueError) as error:
         logger.warning("alert report generation failed: %s", error)
