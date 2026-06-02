@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     llm_model: str = "meta-llama/Llama-3.1-8B-Instruct"
     llm_api_key: str = "not-needed"
     llm_timeout_seconds: float = 30.0
-    llm_reasoning_effort: str = "medium"
+    llm_reasoning_effort: str = "high"
+    llm_min_confidence: float = 0.6
 
     rag_store_dir: Path = BACKEND_ROOT / "data" / "rag_store"
     rag_collection: str = "lotl-knowledge"
