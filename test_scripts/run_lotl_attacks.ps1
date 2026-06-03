@@ -1,5 +1,5 @@
 param(
-    [switch]$Slow,
+    [int]$WindowGapSeconds = 30,
     [switch]$DryRun,
     [switch]$Cleanup
 )
@@ -47,7 +47,8 @@ Initialize-Workspace
 function Invoke-Attack {
     param(
         [string]$Label,
-        [scriptblock]$Action
+        [scriptblock]$Action,
+        [switch]$GroupedWithNext
     )
     $script:Stats.Run++
     Write-Host ("  {0}" -f $Label) -ForegroundColor Yellow
@@ -58,14 +59,12 @@ function Invoke-Attack {
     catch {
         $script:Stats.Failed++
     }
-    Start-Sleep -Milliseconds 250
-}
-
-function Wait-Window {
-    param([string]$Phase)
-    if (-not $Slow) { return }
-    Write-Host ("  ... waiting 70s for backend window to close ({0})" -f $Phase) -ForegroundColor DarkGray
-    Start-Sleep -Seconds 70
+    if ($GroupedWithNext) {
+        Start-Sleep -Milliseconds 250
+        return
+    }
+    Write-Host ("  ... waiting {0}s for backend window to close" -f $WindowGapSeconds) -ForegroundColor DarkGray
+    Start-Sleep -Seconds $WindowGapSeconds
 }
 
 function New-FakeBinary {
@@ -85,8 +84,9 @@ function New-DummyVictimFiles {
 $encodedHi = "ZQBjAGgAbwAgAGgAaQA="
 
 Write-Host ""
-Write-Host "Mode: $(if ($DryRun){'DRY-RUN'} elseif ($Slow){'SLOW (60s window pauses)'} else {'FAST'})" -ForegroundColor Yellow
+Write-Host "Mode: $(if ($DryRun){'DRY-RUN'} else {"per-scenario ${WindowGapSeconds}s window gap"})" -ForegroundColor Yellow
 Write-Host "Sysmon must be installed and the sysmon_agent service running for this to reach the backend." -ForegroundColor DarkGray
+Write-Host "Set the backend LOTL_WINDOW_SECONDS shorter than ${WindowGapSeconds}s (e.g. 10) so each scenario closes in its own window." -ForegroundColor DarkGray
 Write-Host ""
 
 Write-Host "==> YARA tier (10)" -ForegroundColor Cyan
@@ -136,8 +136,6 @@ Invoke-Attack "10/10 Schtasks /create + powershell + 'system'" {
     $script:CreatedTasks.Add($tn)
 }
 
-Wait-Window "YARA"
-
 Write-Host ""
 Write-Host "==> ML tier (10)" -ForegroundColor Cyan
 
@@ -183,20 +181,18 @@ Invoke-Attack "10/10 powershell Get-MpPreference (Defender recon)" {
     Start-Process "powershell.exe" -ArgumentList "-Command", "Get-MpPreference | Select-Object DisableRealtimeMonitoring, ExclusionPath" -WindowStyle Hidden
 }
 
-Wait-Window "ML"
-
 Write-Host ""
 Write-Host "==> LLM tier (10)" -ForegroundColor Cyan
 
-Invoke-Attack "1/10 AD recon chain: whoami /priv" {
+Invoke-Attack "1/10 AD recon chain: whoami /priv" -GroupedWithNext {
     Start-Process "whoami.exe" -ArgumentList "/priv" -WindowStyle Hidden
 }
 
-Invoke-Attack "1/10 AD recon chain: net group Domain Admins" {
+Invoke-Attack "1/10 AD recon chain: net group Domain Admins" -GroupedWithNext {
     Start-Process "net.exe" -ArgumentList "group", "Domain Admins", "/domain" -WindowStyle Hidden
 }
 
-Invoke-Attack "1/10 AD recon chain: nltest /domain_trusts" {
+Invoke-Attack "1/10 AD recon chain: nltest /domain_trusts" -GroupedWithNext {
     Start-Process "nltest.exe" -ArgumentList "/domain_trusts", "/all_trusts" -WindowStyle Hidden
 }
 
@@ -243,8 +239,6 @@ Invoke-Attack "10/10 certreq + ESC1-style SAN attribute (CA missing)" {
     "[NewRequest]`r`nSubject=`"CN=lotltest`"`r`nKeyLength=2048" | Set-Content -Path $inf
     Start-Process "certreq.exe" -ArgumentList "-submit", "-attrib", "SAN:upn=administrator@corp.local", "-config", "MISSING-CA01.corp.local\corp-CA01-CA", $inf, (Join-Path $script:Base "cert.cer") -WindowStyle Hidden
 }
-
-Wait-Window "LLM"
 
 Write-Host ""
 Write-Host "==> Benign / FP-bait (30)" -ForegroundColor Cyan
@@ -385,8 +379,8 @@ Write-Host "==> Done" -ForegroundColor Yellow
 Write-Host ("    Triggered: {0}" -f $script:Stats.Run)
 Write-Host ("    Failed:    {0}" -f $script:Stats.Failed)
 Write-Host ""
-Write-Host "Backend buffers per host_ip for 60 seconds before cascade runs." -ForegroundColor Gray
-Write-Host "Wait ~70 seconds, then check Elasticsearch:" -ForegroundColor Gray
+Write-Host "Each scenario ran in its own window (${WindowGapSeconds}s gap); set LOTL_WINDOW_SECONDS below that." -ForegroundColor Gray
+Write-Host "Wait one more window, then check Elasticsearch:" -ForegroundColor Gray
 Write-Host "  curl 'http://192.168.10.10:9200/lotl-alerts-backend*/_search?pretty&size=50&sort=@timestamp:desc'" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Cleanup artifacts (temp files, scheduled tasks, HKCU\Run entry, LOTLTestSvc):" -ForegroundColor Gray

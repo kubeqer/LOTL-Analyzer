@@ -60,7 +60,7 @@ policy, drop-list of event IDs, secret-redaction patterns — live in
 
 ## Build
 
-From `src/sysmon_agent/`:
+From `apps/sysmon_agent/`:
 
 ```powershell
 cargo build --release
